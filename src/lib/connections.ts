@@ -73,13 +73,21 @@ function participantInfo(party: ConnectionParty) {
 /** Subscribes to every connection (pending or accepted) the uid is part of. */
 export function subscribeToConnections(uid: string, onChange: (connections: Connection[]) => void): Unsubscribe {
   const connectionsQuery = query(collection(db, CONNECTIONS_COLLECTION), where('participantUids', 'array-contains', uid));
-  return onSnapshot(connectionsQuery, (snapshot) => {
-    onChange(
-      snapshot.docs
-        .map((docSnap) => toConnection(docSnap.id, docSnap.data(), uid))
-        .sort((a, b) => b.timestamp - a.timestamp)
-    );
-  });
+  return onSnapshot(
+    connectionsQuery,
+    (snapshot) => {
+      onChange(
+        snapshot.docs
+          .map((docSnap) => toConnection(docSnap.id, docSnap.data(), uid))
+          .sort((a, b) => b.timestamp - a.timestamp)
+      );
+    },
+    // e.g. permission-denied if the connections rules haven't been deployed yet.
+    (err) => {
+      console.error('Could not load connections', err);
+      onChange([]);
+    }
+  );
 }
 
 /**

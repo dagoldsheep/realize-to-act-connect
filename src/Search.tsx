@@ -21,6 +21,7 @@ interface SearchProps {
 export default function Search({ connections, setConnections, user, partnerConnections }: SearchProps) {
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [connectingUid, setConnectingUid] = useState<string | null>(null);
+  const [connectError, setConnectError] = useState('');
 
   useEffect(() => {
     listOrganizations(user.id).then(setOrganizations).catch(() => setOrganizations([]));
@@ -81,6 +82,7 @@ export default function Search({ connections, setConnections, user, partnerConne
   const handleConnect = async (partner: any) => {
     const existing = connectionWith(partner.uid);
     setConnectingUid(partner.uid);
+    setConnectError('');
     try {
       if (existing?.status === 'pending' && existing.direction === 'incoming') {
         await acceptConnection(existing.id);
@@ -90,6 +92,9 @@ export default function Search({ connections, setConnections, user, partnerConne
           { uid: partner.uid, name: partner.name, avatar: partner.avatar, type: partner.orgType }
         );
       }
+    } catch (err) {
+      console.error('Connect failed', err);
+      setConnectError(`Couldn't connect with ${partner.name}. Please try again.`);
     } finally {
       setConnectingUid(null);
     }
@@ -297,6 +302,12 @@ export default function Search({ connections, setConnections, user, partnerConne
                 </div>
               </div>
         </div>
+
+        {connectError && (
+          <div className="mb-6 p-3 bg-red-50 border border-red-200 rounded-[5px] text-red-600 text-sm">
+            {connectError}
+          </div>
+        )}
 
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-lg font-bold text-brand-dark">Community Partners</h2>
