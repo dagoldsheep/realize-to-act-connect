@@ -9,14 +9,16 @@ import { cn } from './lib/utils';
 import { ConnectionRequest, User } from './types';
 import { createRequest, respondToRequest, cancelRequest } from './lib/requests';
 import { ensureChat } from './lib/chats';
+import { PartnerSummary } from './PartnerAbout';
 
 interface RequestsProps {
   connections: ConnectionRequest[];
   setConnections: React.Dispatch<React.SetStateAction<ConnectionRequest[]>>;
   user: User;
+  onViewPartner: (partner: PartnerSummary) => void;
 }
 
-export default function Requests({ connections, setConnections, user }: RequestsProps) {
+export default function Requests({ connections, setConnections, user, onViewPartner }: RequestsProps) {
   const [activeTab, setActiveTab] = useState<'received' | 'sent'>('received');
   const [showCreateRequest, setShowCreateRequest] = useState(false);
   
@@ -144,11 +146,24 @@ export default function Requests({ connections, setConnections, user }: Requests
           {filteredRequests.map((conn) => (
             <div key={conn.id} className="p-6 rounded-[5px] border border-slate-100 bg-slate-50/50 shadow-none hover:border-brand-primary/20 transition-all">
               <div className="flex gap-4 mb-6">
-                <img src={conn.fromAvatar} alt={conn.fromName} className="w-16 h-16 rounded-[5px] object-cover" />
+                {/* Broadcast requests you sent have no single partner to show (fromId is 'everyone'). */}
+                {conn.fromId === 'everyone' ? (
+                  <img src={conn.fromAvatar} alt={conn.fromName} className="w-16 h-16 rounded-[5px] object-cover" />
+                ) : (
+                  <button onClick={() => onViewPartner({ uid: conn.fromId, name: conn.fromName, avatar: conn.fromAvatar })} className="flex-shrink-0">
+                    <img src={conn.fromAvatar} alt={conn.fromName} className="w-16 h-16 rounded-[5px] object-cover hover:opacity-80 transition-opacity" />
+                  </button>
+                )}
                 <div className="flex-1">
                   <div className="flex justify-between items-start mb-2">
                     <div className="flex items-center gap-3">
-                      <h3 className="font-bold text-brand-dark">{conn.fromName}</h3>
+                      {conn.fromId === 'everyone' ? (
+                        <h3 className="font-bold text-brand-dark">{conn.fromName}</h3>
+                      ) : (
+                        <button onClick={() => onViewPartner({ uid: conn.fromId, name: conn.fromName, avatar: conn.fromAvatar })} className="font-bold text-brand-dark text-left hover:text-brand-primary hover:underline">
+                          {conn.fromName}
+                        </button>
+                      )}
                       <div className="flex items-center gap-2">
                         <span className="px-2 py-0.5 rounded-full bg-yellow-100 text-black text-[10px] font-medium opacity-50">Pending</span>
                       </div>

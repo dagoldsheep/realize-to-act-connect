@@ -16,6 +16,16 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // --- Public "About" page profiles (written by src/lib/profiles.ts) ---
+    match /publicProfiles/{uid} {
+      // Any signed-in user can view an organization's About page.
+      allow read: if isSignedIn();
+      // Only the owner can publish or edit their own About page.
+      allow create, update: if isSignedIn() && request.auth.uid == uid &&
+        request.resource.data.uid == uid;
+      allow delete: if false;
+    }
+
     // --- Connection / supply requests (Requests.tsx "sent" & "received") ---
     match /requests/{requestId} {
       // Visible to the sender, the direct recipient, or everyone (broadcast requests).
