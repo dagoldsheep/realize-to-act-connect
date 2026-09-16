@@ -50,11 +50,12 @@ export default function PartnerAbout({ partner, user, connections, onBack }: Par
       { name: conn.fromName, title: '', avatar: conn.fromAvatar }
     );
     // Organizations that exchange resources are automatically connected.
+    // A failure here shouldn't undo or block the approval itself.
     await connectOnApprovedRequest(
       { uid: user.id, name: user.name, avatar: user.avatar, type: user.type },
       { uid: conn.fromId, name: conn.fromName, avatar: conn.fromAvatar },
       conn.id
-    );
+    ).catch(err => console.error('Auto-connect failed', err));
   };
 
   const name = profile?.name ?? partner.name;
