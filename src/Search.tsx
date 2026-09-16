@@ -1,20 +1,31 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { 
   Search as SearchIcon, MapPin, Plus, Check, Filter, ChevronDown, 
   Map as MapIcon, List, X, Clock, Calendar, MessageSquare,
-  Utensils, Backpack, Shirt, Book, Library, Laptop, Home as HomeIcon, Palette, Package
+  Utensils, Backpack, Shirt, Book, Library, Laptop, Home as HomeIcon, Palette, Package,
+  UserPlus, School, Heart
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from './lib/utils';
 import { MOCK_SEARCH_USERS } from './mockData';
-import { ConnectionRequest } from './types';
+import { Connection, ConnectionRequest, Organization, User } from './types';
+import { acceptConnection, listOrganizations, sendConnectionRequest } from './lib/connections';
 
 interface SearchProps {
   connections: ConnectionRequest[];
   setConnections: React.Dispatch<React.SetStateAction<ConnectionRequest[]>>;
+  user: User;
+  partnerConnections: Connection[];
 }
 
-export default function Search({ connections, setConnections }: SearchProps) {
+export default function Search({ connections, setConnections, user, partnerConnections }: SearchProps) {
+  const [organizations, setOrganizations] = useState<Organization[]>([]);
+  const [connectingUid, setConnectingUid] = useState<string | null>(null);
+
+  useEffect(() => {
+    listOrganizations(user.id).then(setOrganizations).catch(() => setOrganizations([]));
+  }, [user.id]);
+
   const [searchQuery, setSearchQuery] = useState('');
   const [filterType, setFilterType] = useState('all');
   const [radius, setRadius] = useState(10);
@@ -46,23 +57,72 @@ export default function Search({ connections, setConnections }: SearchProps) {
     return <Package size={16} className="text-brand-primary" />;
   };
 
+  const connectionWith = (uid: string) => partnerConnections.find(c => c.partnerUid === uid);
+
+  // Registered organizations can be connected with; "Connected" reflects an
+  // accepted connection (sent from here, or made by approving a resource request).
   const allPartners = [
-    ...MOCK_SEARCH_USERS.map(u => ({ ...u, isConnected: false })),
-    ...connections.filter(c => c.status === 'approved').map(c => ({
-      id: c.id,
-      name: c.fromName,
-      avatar: c.fromAvatar,
-      description: c.description || '',
-      distance: c.distance,
-      distanceValue: parseFloat(c.distance) || 0,
-      tags: [c.item],
-      quantity: c.quantity,
-      postedAt: c.postedAt,
-      availableUntil: c.availableUntil,
-      isConnected: true,
-      timeAgo: c.timeAgo
-    }))
+    ...organizations.map(org => ({
+      id: org.uid,
+      uid: org.uid,
+      name: org.name,
+      avatar: org.avatar,
+      orgType: org.type,
+      location: org.location,
+      description: '',
+      distance: '',
+      distanceValue: 0,
+      tags: [] as string[],
+      isConnected: connectionWith(org.uid)?.status === 'accepted',
+    })),
+    ...MOCK_SEARCH_USERS.map(u => ({ ...u, isConnected: false }))
   ];
+
+  const handleConnect = async (partner: any) => {
+    const existing = connectionWith(partner.uid);
+    setConnectingUid(partner.uid);
+    try {
+      if (existing?.status === 'pending' && existing.direction === 'incoming') {
+        await acceptConnection(existing.id);
+      } else if (!existing) {
+        await sendConnectionRequest(
+          { uid: user.id, name: user.name, avatar: user.avatar, type: user.type },
+          { uid: partner.uid, name: partner.name, avatar: partner.avatar, type: partner.orgType }
+        );
+      }
+    } finally {
+      setConnectingUid(null);
+    }
+  };
+
+  const renderConnectButton = (partner: any) => {
+    const existing = connectionWith(partner.uid);
+    const isIncoming = existing?.status === 'pending' && existing.direction === 'incoming';
+    return (
+      <button
+        onClick={() => handleConnect(partner)}
+        disabled={connectingUid === partner.uid || (!!existing && !isIncoming)}
+        className={cn(
+          "w-[140px] py-2.5 rounded-[5px] font-bold text-sm transition-all flex items-center justify-center gap-2",
+          existing?.status === 'accepted'
+            ? "bg-emerald-50 text-emerald-700 cursor-default"
+            : existing && !isIncoming
+              ? "bg-slate-100 text-slate-400 cursor-not-allowed"
+              : "border border-brand-primary text-brand-primary bg-white hover:bg-brand-secondary/20"
+        )}
+      >
+        {existing?.status === 'accepted' ? (
+          <><Check size={16} /> Connected</>
+        ) : isIncoming ? (
+          <><Check size={16} /> Accept</>
+        ) : existing ? (
+          'Pending'
+        ) : (
+          <><UserPlus size={16} /> Connect</>
+        )}
+      </button>
+    );
+  };
 
   const filteredPartners = allPartners.filter(partner => {
     const matchesSearch = partner.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
@@ -269,8 +329,12 @@ export default function Search({ connections, setConnections }: SearchProps) {
                       animate={{ opacity: 1, y: 0 }}
                       className="p-6 rounded-[5px] border border-slate-100 hover:border-brand-primary/20 transition-all flex flex-col sm:flex-row gap-6 bg-white group shadow-none relative"
                     >
-                      <div className="w-20 h-20 rounded-[5px] overflow-hidden flex-shrink-0">
-                        <img src={item.avatar} alt={item.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                      <div className="w-20 h-20 rounded-[5px] overflow-hidden flex-shrink-0 bg-brand-secondary/30 flex items-center justify-center">
+                        {item.avatar ? (
+                          <img src={item.avatar} alt={item.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                        ) : (
+                          <span className="text-2xl font-bold text-brand-primary">{item.name[0]}</span>
+                        )}
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center mb-2">
@@ -284,18 +348,35 @@ export default function Search({ connections, setConnections }: SearchProps) {
                           </div>
                         </div>
                         <p className="text-sm text-slate-500 mb-4 line-clamp-2">
-                          {item.isConnected ? `Providing ${item.tags.join(', ')}. ${item.description}` : item.description}
+                          {item.isConnected && item.tags.length > 0 ? `Providing ${item.tags.join(', ')}. ${item.description}` : item.description}
                         </p>
                         
                         <div className="flex flex-wrap gap-6 mb-0">
-                          <div className="flex items-center gap-2 text-xs font-semibold text-black">
-                            {getSupplyIcon(item.tags[0])}
-                            {item.quantity} {item.tags[0]}
-                          </div>
-                          <div className="flex items-center gap-2 text-xs font-semibold text-black">
-                            <MapPin size={14} className="text-brand-primary" />
-                            {item.distance}
-                          </div>
+                          {item.uid ? (
+                            <>
+                              <div className="flex items-center gap-2 text-xs font-semibold text-black">
+                                {item.orgType === 'school' ? <School size={16} className="text-brand-primary" /> : <Heart size={16} className="text-brand-primary" />}
+                                {item.orgType === 'school' ? 'School District' : 'Community Partner'}
+                              </div>
+                              {item.location && (
+                                <div className="flex items-center gap-2 text-xs font-semibold text-black">
+                                  <MapPin size={14} className="text-brand-primary" />
+                                  {item.location}
+                                </div>
+                              )}
+                            </>
+                          ) : (
+                            <>
+                              <div className="flex items-center gap-2 text-xs font-semibold text-black">
+                                {getSupplyIcon(item.tags[0])}
+                                {item.quantity} {item.tags[0]}
+                              </div>
+                              <div className="flex items-center gap-2 text-xs font-semibold text-black">
+                                <MapPin size={14} className="text-brand-primary" />
+                                {item.distance}
+                              </div>
+                            </>
+                          )}
                           {item.availableUntil && (
                             <div className="flex items-center gap-2 text-xs font-semibold text-black">
                               <Calendar size={14} className="text-brand-primary" />
@@ -310,19 +391,22 @@ export default function Search({ connections, setConnections }: SearchProps) {
                             {item.postedAt}
                           </span>
                         ) : <div />}
-                        
-                        <button 
-                          onClick={() => handleOpenRequestModal(item)}
-                          disabled={sentIds.includes(item.id)}
-                          className={cn(
-                            "w-[140px] py-2.5 rounded-[5px] font-bold text-sm transition-all",
-                            sentIds.includes(item.id)
-                              ? "bg-slate-100 text-slate-400 cursor-not-allowed"
-                              : "bg-brand-primary hover:bg-brand-dark text-white hover:scale-[1.02] active:scale-[0.98]"
-                          )}
-                        >
-                          {sentIds.includes(item.id) ? 'Sent' : 'Send Request'}
-                        </button>
+
+                        <div className="flex flex-col gap-2">
+                          {item.uid && renderConnectButton(item)}
+                          <button
+                            onClick={() => handleOpenRequestModal(item)}
+                            disabled={sentIds.includes(item.id)}
+                            className={cn(
+                              "w-[140px] py-2.5 rounded-[5px] font-bold text-sm transition-all",
+                              sentIds.includes(item.id)
+                                ? "bg-slate-100 text-slate-400 cursor-not-allowed"
+                                : "bg-brand-primary hover:bg-brand-dark text-white hover:scale-[1.02] active:scale-[0.98]"
+                            )}
+                          >
+                            {sentIds.includes(item.id) ? 'Sent' : 'Send Request'}
+                          </button>
+                        </div>
                       </div>
                     </motion.div>
                   );

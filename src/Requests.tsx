@@ -2,21 +2,23 @@ import React, { useState } from 'react';
 import { 
   Plus, Check, X, MapPin, Package,
   Utensils, Shirt, Book, Library, Laptop, Home, Palette, Backpack,
-  ChevronDown, Calendar, Clock
+  ChevronDown, Calendar, Clock, UserPlus
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from './lib/utils';
-import { ConnectionRequest, User } from './types';
+import { Connection, ConnectionRequest, User } from './types';
 import { createRequest, respondToRequest, cancelRequest } from './lib/requests';
 import { ensureChat } from './lib/chats';
+import { acceptConnection, connectOnApprovedRequest, removeConnection } from './lib/connections';
 
 interface RequestsProps {
   connections: ConnectionRequest[];
   setConnections: React.Dispatch<React.SetStateAction<ConnectionRequest[]>>;
   user: User;
+  partnerConnections: Connection[];
 }
 
-export default function Requests({ connections, setConnections, user }: RequestsProps) {
+export default function Requests({ connections, setConnections, user, partnerConnections }: RequestsProps) {
   const [activeTab, setActiveTab] = useState<'received' | 'sent'>('received');
   const [showCreateRequest, setShowCreateRequest] = useState(false);
   
@@ -42,6 +44,12 @@ export default function Requests({ connections, setConnections, user }: Requests
         { name: user.name, title: user.contactName || '', avatar: user.avatar },
         connection.fromId,
         { name: connection.fromName, title: '', avatar: connection.fromAvatar }
+      );
+      // Organizations that exchange resources are automatically connected.
+      await connectOnApprovedRequest(
+        { uid: user.id, name: user.name, avatar: user.avatar, type: user.type },
+        { uid: connection.fromId, name: connection.fromName, avatar: connection.fromAvatar },
+        id
       );
     }
   };
@@ -106,8 +114,14 @@ export default function Requests({ connections, setConnections, user }: Requests
     return matchesTab && c.status === 'pending';
   });
 
-  const receivedCount = connections.filter(c => c.type === 'received' && c.status === 'pending').length;
-  const sentCount = connections.filter(c => c.type === 'sent' && c.status === 'pending').length;
+  const pendingConnectionRequests = partnerConnections.filter(c =>
+    c.status === 'pending' && c.direction === (activeTab === 'received' ? 'incoming' : 'outgoing')
+  );
+
+  const receivedCount = connections.filter(c => c.type === 'received' && c.status === 'pending').length
+    + partnerConnections.filter(c => c.status === 'pending' && c.direction === 'incoming').length;
+  const sentCount = connections.filter(c => c.type === 'sent' && c.status === 'pending').length
+    + partnerConnections.filter(c => c.status === 'pending' && c.direction === 'outgoing').length;
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
@@ -141,6 +155,60 @@ export default function Requests({ connections, setConnections, user }: Requests
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {pendingConnectionRequests.map((conn) => (
+            <div key={conn.id} className="p-6 rounded-[5px] border border-slate-100 bg-slate-50/50 shadow-none hover:border-brand-primary/20 transition-all flex flex-col">
+              <div className="flex gap-4 mb-6 flex-1">
+                <div className="w-16 h-16 rounded-[5px] overflow-hidden flex-shrink-0 bg-brand-secondary/30 flex items-center justify-center">
+                  {conn.partnerAvatar ? (
+                    <img src={conn.partnerAvatar} alt={conn.partnerName} className="w-full h-full object-cover" />
+                  ) : (
+                    <span className="text-xl font-bold text-brand-primary">{conn.partnerName[0]}</span>
+                  )}
+                </div>
+                <div className="flex-1">
+                  <div className="flex items-center gap-3 mb-2">
+                    <h3 className="font-bold text-brand-dark">{conn.partnerName}</h3>
+                    <span className="px-2 py-0.5 rounded-full bg-brand-secondary/30 text-brand-primary text-[10px] font-medium">Connection Request</span>
+                  </div>
+                  <p className="flex items-center gap-1.5 text-xs text-slate-500">
+                    <UserPlus size={14} className="text-brand-primary" />
+                    {conn.direction === 'incoming'
+                      ? `${conn.partnerName} wants to connect with you.`
+                      : `Waiting for ${conn.partnerName} to accept.`}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex gap-3">
+                {conn.direction === 'incoming' ? (
+                  <>
+                    <button
+                      onClick={() => acceptConnection(conn.id)}
+                      className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-[5px] bg-brand-primary text-white text-sm font-bold hover:bg-brand-dark transition-all hover:scale-[1.02] active:scale-[0.98]"
+                    >
+                      <Check size={18} />
+                      Accept
+                    </button>
+                    <button
+                      onClick={() => removeConnection(conn.id)}
+                      className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-[5px] border border-slate-200 bg-white text-sm font-bold text-slate-700 hover:bg-slate-50 transition-all"
+                    >
+                      <X size={18} />
+                      Ignore
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    onClick={() => removeConnection(conn.id)}
+                    className="flex-1 py-2.5 rounded-[5px] border border-red-100 bg-red-50 text-red-600 text-sm font-bold hover:bg-red-100 transition-all"
+                  >
+                    Withdraw Request
+                  </button>
+                )}
+              </div>
+            </div>
+          ))}
+
           {filteredRequests.map((conn) => (
             <div key={conn.id} className="p-6 rounded-[5px] border border-slate-100 bg-slate-50/50 shadow-none hover:border-brand-primary/20 transition-all">
               <div className="flex gap-4 mb-6">
@@ -203,7 +271,7 @@ export default function Requests({ connections, setConnections, user }: Requests
             </div>
           ))}
           
-          {filteredRequests.length === 0 && (
+          {filteredRequests.length === 0 && pendingConnectionRequests.length === 0 && (
             <div className="col-span-full h-64 flex flex-col items-center justify-center border border-dashed border-slate-200 rounded-[5px] text-slate-400">
               <Package size={48} className="mb-4 opacity-20" />
               <p>No current {activeTab} requests.</p>

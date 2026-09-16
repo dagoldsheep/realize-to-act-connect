@@ -41,6 +41,53 @@ service cloud.firestore {
       allow delete: if isSignedIn() && resource.data.fromUid == request.auth.uid;
     }
 
+    // --- Organization connections (src/lib/connections.ts) ---
+    // True when `data.requestId` points at an approved resource request between
+    // exactly the two participants — what lets an approval auto-connect them.
+    function isApprovedRequestBetween(data) {
+      let req = get(/databases/$(database)/documents/requests/$(data.requestId)).data;
+      return req.status == 'approved' &&
+        [req.fromUid, req.toUid].toSet() == data.participantUids.toSet();
+    }
+
+    match /connections/{pairId} {
+      // `resource == null` lets a participant check whether a connection exists yet.
+      allow read: if isSignedIn() &&
+        (resource == null || request.auth.uid in resource.data.participantUids);
+
+      allow create: if isSignedIn() &&
+        request.resource.data.participantUids.size() == 2 &&
+        request.resource.data.participantUids[0] < request.resource.data.participantUids[1] &&
+        pairId == request.resource.data.participantUids[0] + '_' + request.resource.data.participantUids[1] &&
+        request.auth.uid in request.resource.data.participantUids &&
+        request.resource.data.requesterUid in request.resource.data.participantUids &&
+        request.resource.data.recipientUid in request.resource.data.participantUids &&
+        request.resource.data.requesterUid != request.resource.data.recipientUid && (
+          // A connection request sent from the Search page.
+          (request.resource.data.status == 'pending' &&
+            request.resource.data.requesterUid == request.auth.uid) ||
+          // Auto-connect on an approved resource request.
+          (request.resource.data.status == 'accepted' &&
+            isApprovedRequestBetween(request.resource.data))
+        );
+
+      allow update: if isSignedIn() &&
+        request.auth.uid in resource.data.participantUids && (
+          // The recipient accepts a pending request.
+          (resource.data.status == 'pending' &&
+            resource.data.recipientUid == request.auth.uid &&
+            request.resource.data.status == 'accepted' &&
+            request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'updatedAt'])) ||
+          // Either side upgrades a pending request after approving a resource request.
+          (request.resource.data.status == 'accepted' &&
+            request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'source', 'requestId', 'updatedAt']) &&
+            isApprovedRequestBetween(request.resource.data))
+        );
+
+      // Either participant can decline, withdraw, or remove the connection.
+      allow delete: if isSignedIn() && request.auth.uid in resource.data.participantUids;
+    }
+
     // --- Chats & messages (Messages.tsx "messages sent" & "messages received") ---
     match /chats/{chatId} {
       allow read, update: if isSignedIn() && request.auth.uid in resource.data.participantUids;
