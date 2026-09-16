@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { cn } from './lib/utils';
 import { User, ConnectionRequest } from './types';
+import ProfileSetup from './ProfileSetup';
 
 interface ProfileProps {
   user: User;
@@ -17,6 +18,7 @@ interface ProfileProps {
 export default function Profile({ user, onLogout, connections, onUpdateUser }: ProfileProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState<string | null>(null);
+  const [isEditingAboutPage, setIsEditingAboutPage] = useState(false);
   const [about, setAbout] = useState('');
   const [dropOffLocation, setDropOffLocation] = useState(user.dropOffLocation || '');
   const [allowAvailabilityView, setAllowAvailabilityView] = useState(true);
@@ -178,6 +180,23 @@ export default function Profile({ user, onLogout, connections, onUpdateUser }: P
                 ) : (
                   <p className="text-sm text-slate-400 italic">{about || 'No additional information listed.'}</p>
                 )}
+              </div>
+
+              <div className="p-4 bg-brand-secondary/10 rounded-[5px] border border-brand-secondary/20 flex items-center justify-between gap-4">
+                <div>
+                  <span className="text-sm font-bold text-brand-dark block">Your About Page</span>
+                  <p className="text-[10px] text-slate-500 mt-1">
+                    {user.setupCompletedAt
+                      ? 'What organizations see when they open your profile from a request.'
+                      : "You haven't set up your About page yet."}
+                  </p>
+                </div>
+                <button
+                  onClick={() => setIsEditingAboutPage(true)}
+                  className="px-4 py-2 rounded-[5px] bg-brand-primary text-white text-xs font-bold hover:bg-brand-dark transition-all whitespace-nowrap"
+                >
+                  {user.setupCompletedAt ? 'Edit About Page' : 'Set Up'}
+                </button>
               </div>
 
               <div>
@@ -420,6 +439,18 @@ export default function Profile({ user, onLogout, connections, onUpdateUser }: P
           </section>
         </div>
       </div>
+
+      {isEditingAboutPage && (
+        <ProfileSetup
+          user={user}
+          variant="edit"
+          onDone={(updates) => {
+            onUpdateUser({ ...user, ...updates });
+            setIsEditingAboutPage(false);
+          }}
+          onClose={() => setIsEditingAboutPage(false)}
+        />
+      )}
 
       {/* Settings Modals */}
       {showSettingsModal && (

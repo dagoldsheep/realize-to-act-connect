@@ -16,6 +16,9 @@ export interface User {
   availability?: AvailabilitySlot[];
   dropOffLocation?: string;
   needDropOffAssistance?: boolean;
+  profileAnswers?: Record<string, string | string[]>;
+  setupCompletedAt?: string;
+  setupSkippedAt?: string;
 }
 
 export interface ConnectionRequest {

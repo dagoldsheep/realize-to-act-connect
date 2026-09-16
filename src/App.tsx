@@ -9,6 +9,8 @@ import Documents from './Documents';
 import Messages from './Messages';
 import Profile from './Profile';
 import Search from './Search';
+import PartnerAbout, { PartnerSummary } from './PartnerAbout';
+import ProfileSetup from './ProfileSetup';
 import { User, UserType, ConnectionRequest, Chat, Document } from './types';
 import { MOCK_USER, MOCK_DOCUMENTS as INITIAL_DOCUMENTS } from './mockData';
 import { auth } from './lib/firebase';
@@ -41,6 +43,8 @@ export default function App() {
   const [selectedChatId, setSelectedChatId] = useState<string | null>(null);
   const [draftMessage, setDraftMessage] = useState<{ text: string; isSuggestedTime?: boolean; suggestedTimes?: string[]; meetingNote?: string } | null>(null);
   const [lastActionTime, setLastActionTime] = useState<string>('');
+  const [viewingPartner, setViewingPartner] = useState<PartnerSummary | null>(null);
+  const [tabBeforePartner, setTabBeforePartner] = useState('dashboard');
 
   const updateLastAction = () => {
     const now = new Date();
@@ -102,6 +106,14 @@ export default function App() {
     setActiveTab('messages');
   };
 
+  // Opens a school/community partner's About page, remembering where the
+  // user came from so "Back" returns there.
+  const viewPartner = (partner: PartnerSummary) => {
+    if (activeTab !== 'about') setTabBeforePartner(activeTab);
+    setViewingPartner(partner);
+    setActiveTab('about');
+  };
+
   const handleUpdateUser = (updatedUser: User) => {
     setUser(updatedUser);
   };
@@ -134,6 +146,18 @@ export default function App() {
     return <Auth onLogin={handleLogin} />;
   }
 
+  // Prompt for About page details once, right after signup (or on the first
+  // login after this step was added). Skipping is remembered too.
+  if (!user.setupCompletedAt && !user.setupSkippedAt) {
+    return (
+      <ProfileSetup
+        user={user}
+        variant="onboarding"
+        onDone={(updates) => setUser({ ...user, ...updates })}
+      />
+    );
+  }
+
   return (
     <Layout 
       user={user} 
@@ -157,6 +181,7 @@ export default function App() {
           lastActionTime={lastActionTime}
           updateLastAction={updateLastAction}
           setChats={setChats}
+          onViewPartner={viewPartner}
         />
       )}
       {activeTab === 'requests' && (
@@ -164,6 +189,15 @@ export default function App() {
           connections={connections} 
           setConnections={setConnections} 
           user={user}
+          onViewPartner={viewPartner}
+        />
+      )}
+      {activeTab === 'about' && viewingPartner && (
+        <PartnerAbout
+          partner={viewingPartner}
+          user={user}
+          connections={connections}
+          onBack={() => setActiveTab(tabBeforePartner)}
         />
       )}
       {activeTab === 'messages' && (

@@ -22,5 +22,8 @@ export async function getUserProfile(uid: string): Promise<Partial<User> & { use
     availability: data.availability,
     dropOffLocation: data.dropOffLocation,
     needDropOffAssistance: data.needDropOffAssistance,
+    profileAnswers: data.profileAnswers,
+    setupCompletedAt: data.setupCompletedAt,
+    setupSkippedAt: data.setupSkippedAt,
   };
 }
