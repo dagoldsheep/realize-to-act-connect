@@ -11,12 +11,13 @@ import Profile from './Profile';
 import Search from './Search';
 import PartnerAbout, { PartnerSummary } from './PartnerAbout';
 import ProfileSetup from './ProfileSetup';
-import { User, UserType, ConnectionRequest, Chat, Document } from './types';
+import { User, UserType, ConnectionRequest, Chat, Document, Connection } from './types';
 import { MOCK_USER, MOCK_DOCUMENTS as INITIAL_DOCUMENTS } from './mockData';
 import { auth } from './lib/firebase';
 import { getUserProfile } from './lib/users';
 import { subscribeToRequests } from './lib/requests';
 import { subscribeToChats } from './lib/chats';
+import { subscribeToConnections } from './lib/connections';
 
 // Builds the in-app User object for a signed-in Firebase uid, layering the
 // Firestore "users/{uid}" profile (org name, availability, etc.) on top of
@@ -40,6 +41,8 @@ export default function App() {
   const [connections, setConnections] = useState<ConnectionRequest[]>([]);
   const [documents, setDocuments] = useState(INITIAL_DOCUMENTS);
   const [chats, setChats] = useState<Chat[]>([]);
+  // Organization-to-organization connections; `connections` above holds resource requests.
+  const [partnerConnections, setPartnerConnections] = useState<Connection[]>([]);
   const [selectedChatId, setSelectedChatId] = useState<string | null>(null);
   const [draftMessage, setDraftMessage] = useState<{ text: string; isSuggestedTime?: boolean; suggestedTimes?: string[]; meetingNote?: string } | null>(null);
   const [lastActionTime, setLastActionTime] = useState<string>('');
@@ -79,13 +82,16 @@ export default function App() {
     if (!user) {
       setConnections([]);
       setChats([]);
+      setPartnerConnections([]);
       return;
     }
     const unsubscribeRequests = subscribeToRequests(user.id, setConnections);
     const unsubscribeChats = subscribeToChats(user.id, setChats);
+    const unsubscribeConnections = subscribeToConnections(user.id, setPartnerConnections);
     return () => {
       unsubscribeRequests();
       unsubscribeChats();
+      unsubscribeConnections();
     };
   }, [user?.id]);
 
@@ -190,6 +196,7 @@ export default function App() {
           setConnections={setConnections} 
           user={user}
           onViewPartner={viewPartner}
+          partnerConnections={partnerConnections}
         />
       )}
       {activeTab === 'about' && viewingPartner && (
@@ -225,6 +232,8 @@ export default function App() {
         <Search 
           connections={connections}
           setConnections={setConnections}
+          user={user}
+          partnerConnections={partnerConnections}
         />
       )}
       {activeTab === 'profile' && (

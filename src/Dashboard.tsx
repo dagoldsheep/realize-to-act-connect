@@ -12,6 +12,7 @@ import { User, ConnectionRequest, Document, Chat } from './types';
 import { respondToRequest } from './lib/requests';
 import { ensureChat } from './lib/chats';
 import { PartnerSummary } from './PartnerAbout';
+import { connectOnApprovedRequest } from './lib/connections';
 
 interface DashboardProps {
   user: User;
@@ -49,6 +50,12 @@ export default function Dashboard({
         { name: user.name, title: user.contactName || '', avatar: user.avatar },
         connection.fromId,
         { name: connection.fromName, title: '', avatar: connection.fromAvatar }
+      );
+      // Organizations that exchange resources are automatically connected.
+      await connectOnApprovedRequest(
+        { uid: user.id, name: user.name, avatar: user.avatar, type: user.type },
+        { uid: connection.fromId, name: connection.fromName, avatar: connection.fromAvatar },
+        id
       );
       updateLastAction();
 

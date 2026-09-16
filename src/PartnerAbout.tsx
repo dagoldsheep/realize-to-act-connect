@@ -3,6 +3,7 @@ import { ArrowLeft, Check, Globe, Heart, MapPin, Package, School, X } from 'luci
 import { ConnectionRequest, User } from './types';
 import { respondToRequest, cancelRequest } from './lib/requests';
 import { ensureChat } from './lib/chats';
+import { connectOnApprovedRequest } from './lib/connections';
 import { getPublicProfile, PublicProfile } from './lib/profiles';
 import { PROFILE_FIELDS, isAnswered } from './lib/profileFields';
 
@@ -47,6 +48,12 @@ export default function PartnerAbout({ partner, user, connections, onBack }: Par
       { name: user.name, title: user.contactName || '', avatar: user.avatar },
       conn.fromId,
       { name: conn.fromName, title: '', avatar: conn.fromAvatar }
+    );
+    // Organizations that exchange resources are automatically connected.
+    await connectOnApprovedRequest(
+      { uid: user.id, name: user.name, avatar: user.avatar, type: user.type },
+      { uid: conn.fromId, name: conn.fromName, avatar: conn.fromAvatar },
+      conn.id
     );
   };
 
