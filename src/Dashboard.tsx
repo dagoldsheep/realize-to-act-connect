@@ -50,11 +50,12 @@ export default function Dashboard({
         { name: connection.fromName, title: '', avatar: connection.fromAvatar }
       );
       // Organizations that exchange resources are automatically connected.
+      // A failure here shouldn't undo or block the approval itself.
       await connectOnApprovedRequest(
         { uid: user.id, name: user.name, avatar: user.avatar, type: user.type },
         { uid: connection.fromId, name: connection.fromName, avatar: connection.fromAvatar },
         id
-      );
+      ).catch(err => console.error('Auto-connect failed', err));
       updateLastAction();
 
       // Add to pending signatures
