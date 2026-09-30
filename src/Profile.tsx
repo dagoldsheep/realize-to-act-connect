@@ -1,12 +1,14 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { 
   User as UserIcon, MapPin, Mail, Edit3, 
   Users, MessageSquare, Activity, Bell, 
   Lock, Trash2, LogOut, Check, Plus, MailCheck, X
 } from 'lucide-react';
 import { cn } from './lib/utils';
-import { User, ConnectionRequest } from './types';
+import { User, ConnectionRequest, Chat, Connection } from './types';
 import Tag from './components/Tag';
+import { subscribeToChats } from './lib/chats';
+import { subscribeToConnections } from './lib/connections';
 
 interface ProfileProps {
   user: User;
@@ -16,6 +18,19 @@ interface ProfileProps {
 }
 
 export default function Profile({ user, onLogout, connections, onUpdateUser }: ProfileProps) {
+  // Read live so the account overview below reflects real activity.
+  const [chats, setChats] = useState<Chat[]>([]);
+  const [partnerConnections, setPartnerConnections] = useState<Connection[]>([]);
+
+  useEffect(() => {
+    const unsubscribeChats = subscribeToChats(user.id, setChats);
+    const unsubscribeConnections = subscribeToConnections(user.id, setPartnerConnections);
+    return () => {
+      unsubscribeChats();
+      unsubscribeConnections();
+    };
+  }, [user.id]);
+
   const [isEditing, setIsEditing] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState<string | null>(null);
   const [about, setAbout] = useState(user.about || '');
@@ -27,9 +42,8 @@ export default function Profile({ user, onLogout, connections, onUpdateUser }: P
   const [isSendingRequest, setIsSendingRequest] = useState(false);
   const [teamMembers, setTeamMembers] = useState([
     { email: user.email, role: 'Owner', isPrimary: true, status: 'Active' },
-    ...(user.teamEmails && user.teamEmails.length > 0
-      ? user.teamEmails.map(email => ({ email, role: 'Admin', isPrimary: false, status: 'Invited' }))
-      : [{ email: 'admin@school.edu', role: 'Admin', isPrimary: false, status: 'Invited' }])
+    // Real invited teammates only — no placeholder admin@school.edu.
+    ...(user.teamEmails ?? []).map(email => ({ email, role: 'Admin', isPrimary: false, status: 'Invited' }))
   ]);
   const [newMemberEmail, setNewMemberEmail] = useState('');
 
@@ -41,9 +55,9 @@ export default function Profile({ user, onLogout, connections, onUpdateUser }: P
   });
 
   const stats = [
-    { label: 'Connection Requests', value: connections.filter(c => c.status === 'pending').length.toString(), icon: Users },
-    { label: 'Sent Messages', value: '12', icon: MessageSquare }, // Mocked for now as we don't track total sent messages globally
-    { label: 'Active Connections', value: connections.filter(c => c.status === 'approved').length.toString(), icon: Activity },
+    { label: 'Pending Requests', value: connections.filter(c => c.status === 'pending').length.toString(), icon: Users },
+    { label: 'Conversations', value: chats.length.toString(), icon: MessageSquare },
+    { label: 'Active Connections', value: partnerConnections.filter(c => c.status === 'accepted').length.toString(), icon: Activity },
   ];
 
   const toggleSlot = (dayIndex: number, slot: string) => {
