@@ -5,7 +5,16 @@
 
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from './firebase';
-import { User, UserType } from '../types';
+import { AvailabilitySlot, User, UserType } from '../types';
+
+/** Empty weekday grid used until an organization picks its own drop-off times. */
+export const DEFAULT_AVAILABILITY: AvailabilitySlot[] = [
+  { day: 'MON', slots: [] },
+  { day: 'TUES', slots: [] },
+  { day: 'WED', slots: [] },
+  { day: 'THURS', slots: [] },
+  { day: 'FRI', slots: [] },
+];
 
 export async function getUserProfile(uid: string): Promise<Partial<User> & { userType?: UserType }> {
   try {
