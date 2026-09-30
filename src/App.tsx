@@ -219,6 +219,7 @@ export default function App() {
           updateLastAction={updateLastAction}
           setChats={setChats}
           onViewPartner={viewPartner}
+          partnerConnections={partnerConnections}
         />
       )}
       {activeTab === 'requests' && (

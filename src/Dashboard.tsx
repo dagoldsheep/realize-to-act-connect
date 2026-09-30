@@ -7,12 +7,11 @@ import {
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { cn } from './lib/utils';
-import { MOCK_CONNECTIONS, MOCK_DOCUMENTS, MOCK_SUGGESTED_MATCHES } from './mockData';
-import { User, ConnectionRequest, Document, Chat } from './types';
+import { User, ConnectionRequest, Document, Chat, Connection, Organization } from './types';
 import { respondToRequest } from './lib/requests';
 import { ensureChat } from './lib/chats';
 import { PartnerSummary } from './PartnerAbout';
-import { connectOnApprovedRequest } from './lib/connections';
+import { connectOnApprovedRequest, listOrganizations } from './lib/connections';
 
 interface DashboardProps {
   user: User;
@@ -28,6 +27,7 @@ interface DashboardProps {
   updateLastAction: () => void;
   setChats: React.Dispatch<React.SetStateAction<Chat[]>>;
   onViewPartner: (partner: PartnerSummary) => void;
+  partnerConnections: Connection[];
 }
 
 export default function Dashboard({ 
@@ -36,10 +36,22 @@ export default function Dashboard({
   connections, setConnections,
   documents, setDocuments,
   lastActionTime, updateLastAction,
-  setChats, onViewPartner
+  setChats, onViewPartner, partnerConnections
 }: DashboardProps) {
   const pendingConnections = connections.filter(c => c.status === 'pending' && c.type === 'received');
   const pendingDocs = documents.filter(d => d.status === 'pending');
+  const [organizations, setOrganizations] = React.useState<Organization[]>([]);
+
+  React.useEffect(() => {
+    listOrganizations(user.id).then(setOrganizations).catch(() => setOrganizations([]));
+  }, [user.id]);
+
+  // Schools are matched with community partners and vice versa, skipping the
+  // organizations they're already connected to.
+  const connectedUids = partnerConnections.filter(c => c.status === 'accepted').map(c => c.partnerUid);
+  const suggestedMatches = organizations
+    .filter(org => org.type !== user.type && !connectedUids.includes(org.uid))
+    .slice(0, 4);
 
   const handleApprove = async (id: string) => {
     const connection = connections.find(c => c.id === id);
@@ -171,31 +183,42 @@ export default function Dashboard({
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {MOCK_SUGGESTED_MATCHES.map((match) => (
-                <div 
-                  key={match.id} 
-                  onClick={() => onNavigate('search')}
+              {suggestedMatches.map((match) => (
+                <div
+                  key={match.uid}
+                  onClick={() => onViewPartner({ uid: match.uid, name: match.name, avatar: match.avatar })}
                   className="p-4 rounded-[5px] border border-slate-100 hover:border-brand-primary/20 transition-all flex gap-4 bg-slate-50/30 cursor-pointer group"
                 >
-                  <img src={match.avatar} alt={match.name} className="w-12 h-12 rounded-[5px] object-cover" />
+                  <div className="w-12 h-12 rounded-[5px] overflow-hidden flex-shrink-0 bg-brand-secondary/30 flex items-center justify-center">
+                    {match.avatar ? (
+                      <img src={match.avatar} alt={match.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                    ) : (
+                      <span className="text-lg font-bold text-brand-primary">{match.name[0]}</span>
+                    )}
+                  </div>
                   <div className="flex-1 min-w-0">
                     <h3 className="text-sm font-bold text-brand-dark truncate transition-colors">{match.name}</h3>
-                    <p className="text-[10px] text-slate-500 mb-2 truncate">{match.description}</p>
-                    <div className="flex flex-col gap-2">
-                      <div className="flex flex-wrap gap-3">
-                        <span className="text-xs font-semibold text-black flex items-center gap-1.5">
-                          {getSupplyIcon(match.item || '')}
-                          {match.quantity} {match.item}
-                        </span>
+                    <div className="flex flex-wrap gap-3 mt-2">
+                      <span className="text-xs font-semibold text-black flex items-center gap-1.5">
+                        {match.type === 'school' ? <Library size={14} className="text-brand-primary" /> : <Package size={14} className="text-brand-primary" />}
+                        {match.type === 'school' ? 'School District' : 'Community Partner'}
+                      </span>
+                      {match.location && (
                         <span className="text-xs font-semibold text-black flex items-center gap-1.5">
                           <MapPin size={14} className="text-brand-primary" />
-                          {match.distance}
+                          {match.location}
                         </span>
-                      </div>
+                      )}
                     </div>
                   </div>
                 </div>
               ))}
+
+              {suggestedMatches.length === 0 && (
+                <div className="col-span-full h-32 flex items-center justify-center border border-dashed border-slate-200 rounded-[5px] text-slate-400 text-sm">
+                  No other organizations to suggest yet.
+                </div>
+              )}
             </div>
           </section>
 
