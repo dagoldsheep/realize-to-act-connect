@@ -206,6 +206,7 @@ export default function App() {
       onLogout={handleLogout}
       actionsNeededRead={actionsNeededRead}
       setActionsNeededRead={setActionsNeededRead}
+      connections={connections}
     >
       {activeTab === 'dashboard' && (
         <Dashboard 
