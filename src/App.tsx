@@ -274,6 +274,8 @@ export default function App() {
           onLogout={handleLogout} 
           connections={connections}
           onUpdateUser={handleUpdateUser}
+          chats={chats}
+          partnerConnections={partnerConnections}
         />
       )}
     </Layout>

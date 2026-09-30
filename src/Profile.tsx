@@ -5,7 +5,7 @@ import {
   Lock, Trash2, LogOut, Check, Plus, MailCheck, X
 } from 'lucide-react';
 import { cn } from './lib/utils';
-import { User, ConnectionRequest } from './types';
+import { User, ConnectionRequest, Chat, Connection } from './types';
 import ProfileSetup from './ProfileSetup';
 
 interface ProfileProps {
@@ -13,9 +13,11 @@ interface ProfileProps {
   onLogout: () => void;
   connections: ConnectionRequest[];
   onUpdateUser: (user: User) => void;
+  chats: Chat[];
+  partnerConnections: Connection[];
 }
 
-export default function Profile({ user, onLogout, connections, onUpdateUser }: ProfileProps) {
+export default function Profile({ user, onLogout, connections, onUpdateUser, chats, partnerConnections }: ProfileProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState<string | null>(null);
   const [isEditingAboutPage, setIsEditingAboutPage] = useState(false);
@@ -26,8 +28,7 @@ export default function Profile({ user, onLogout, connections, onUpdateUser }: P
   const [needDropOffAssistance, setNeedDropOffAssistance] = useState(user.needDropOffAssistance || false);
   const [isSendingRequest, setIsSendingRequest] = useState(false);
   const [teamMembers, setTeamMembers] = useState([
-    { email: user.email, role: 'Owner', isPrimary: true, status: 'Active' },
-    { email: 'admin@school.edu', role: 'Admin', isPrimary: false, status: 'Invited' }
+    { email: user.email, role: 'Owner', isPrimary: true, status: 'Active' }
   ]);
   const [newMemberEmail, setNewMemberEmail] = useState('');
 
@@ -39,9 +40,9 @@ export default function Profile({ user, onLogout, connections, onUpdateUser }: P
   });
 
   const stats = [
-    { label: 'Connection Requests', value: connections.filter(c => c.status === 'pending').length.toString(), icon: Users },
-    { label: 'Sent Messages', value: '12', icon: MessageSquare }, // Mocked for now as we don't track total sent messages globally
-    { label: 'Active Connections', value: connections.filter(c => c.status === 'approved').length.toString(), icon: Activity },
+    { label: 'Pending Requests', value: connections.filter(c => c.status === 'pending').length.toString(), icon: Users },
+    { label: 'Conversations', value: chats.length.toString(), icon: MessageSquare },
+    { label: 'Active Connections', value: partnerConnections.filter(c => c.status === 'accepted').length.toString(), icon: Activity },
   ];
 
   const toggleSlot = (dayIndex: number, slot: string) => {
