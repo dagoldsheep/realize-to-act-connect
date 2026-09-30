@@ -12,7 +12,7 @@ import Search from './Search';
 import PartnerAbout, { PartnerSummary } from './PartnerAbout';
 import ProfileSetup from './ProfileSetup';
 import { User, UserType, ConnectionRequest, Chat, Document, Connection } from './types';
-import { MOCK_DOCUMENTS as INITIAL_DOCUMENTS } from './mockData';
+import { MOCK_USER, MOCK_DOCUMENTS as INITIAL_DOCUMENTS } from './mockData';
 import { auth } from './lib/firebase';
 import { DEFAULT_AVAILABILITY, getUserProfile } from './lib/users';
 import { subscribeToRequests } from './lib/requests';
@@ -203,6 +203,8 @@ export default function App() {
       onLogout={handleLogout}
       actionsNeededRead={actionsNeededRead}
       setActionsNeededRead={setActionsNeededRead}
+      connections={connections}
+      partnerConnections={partnerConnections}
     >
       {activeTab === 'dashboard' && (
         <Dashboard 

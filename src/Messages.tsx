@@ -120,42 +120,6 @@ export default function Messages({
     }
   }, [draftMessage, setDraftMessage]);
 
-  // Apply Network Center specific pre-fill
-  React.useEffect(() => {
-    if (activeChat?.participantName === 'Network Center' && activeChat.messages?.length === 2 && !message && !meetingNoteDraft) {
-      setMessage("Great, thank you! Since the time is confirmed for 2:00 PM, let's meet at the Main Entrance. I'll have a few staff members there to help unload.");
-      setMeetingNoteDraft("Main Entrance");
-    }
-    
-    // Apply Hope Feeling Foundation specific pre-fill for recently approved
-    if (activeChat?.participantName === 'Hope Feeling Foundation' && activeChat.isRecentlyApproved && activeChat.messages?.length === 0 && !message) {
-      const intro = `Hi Hope Feeling Foundation, are the 200 Biology Textbooks still available? We'd love to coordinate a drop off!`;
-      const overlapping = [
-        'Mon, 03/10/26: 8:00 AM', 
-        'Mon, 03/10/26: 9:00 AM', 
-        'Wed, 03/12/26: 8:00 AM', 
-        'Wed, 03/12/26: 9:00 AM'
-      ];
-      setMessage(`${intro} Based on our profiles, we both have availability during these times. Would any of these work for you?`);
-      setIsSuggestedTimeDraft(true);
-      setSuggestedTimesDraft(overlapping);
-    }
-
-    // Apply The Woman's Shelter specific pre-fill for recently approved
-    if (activeChat?.participantName === "The Woman's Shelter" && activeChat.isRecentlyApproved && activeChat.messages?.length === 0 && !message) {
-      const intro = `Hi The Woman's Shelter, are the 200 Backpacks still available? We'd love to coordinate a drop off!`;
-      const overlapping = [
-        'Mon, 03/10/26: 8:00 AM', 
-        'Mon, 03/10/26: 9:00 AM', 
-        'Wed, 03/12/26: 8:00 AM', 
-        'Wed, 03/12/26: 9:00 AM'
-      ];
-      setMessage(`${intro} Based on our profiles, we both have availability during these times. Would any of these work for you?`);
-      setIsSuggestedTimeDraft(true);
-      setSuggestedTimesDraft(overlapping);
-    }
-  }, [activeChatId, activeChat?.participantName, activeChat?.messages?.length, activeChat?.isRecentlyApproved]);
-
   // Stream the active chat's messages from Firestore. Only the open
   // conversation is subscribed (not every chat in the sidebar) to keep
   // reads proportional to what's actually being viewed.
@@ -406,7 +370,7 @@ export default function Messages({
             </div>
 
             <div className="p-6 border-t border-slate-100">
-              {meetingNoteDraft && activeChat?.participantName === 'Network Center' && (
+              {meetingNoteDraft && (
                 <div className="mb-4 p-4 bg-brand-secondary/10 rounded-[5px] border border-brand-primary/10 animate-in slide-in-from-bottom-2">
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-xs font-bold text-brand-primary flex items-center gap-2">

@@ -4,8 +4,8 @@ import {
   FileText, Bell, Menu, X, LogOut, User as UserIcon, Search
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { cn } from './lib/utils';
-import { User } from './types';
+import { cn, timeAgo } from './lib/utils';
+import { Connection, ConnectionRequest, User } from './types';
 
 interface LayoutProps {
   user: User;
@@ -14,16 +14,52 @@ interface LayoutProps {
   onLogout: () => void;
   actionsNeededRead: boolean;
   setActionsNeededRead: (read: boolean) => void;
+  connections: ConnectionRequest[];
+  partnerConnections: Connection[];
   children: React.ReactNode;
 }
 
-export default function Layout({ 
-  user, activeTab, setActiveTab, onLogout, 
-  actionsNeededRead, setActionsNeededRead, 
-  children 
+export default function Layout({
+  user, activeTab, setActiveTab, onLogout,
+  actionsNeededRead, setActionsNeededRead,
+  connections, partnerConnections,
+  children
 }: LayoutProps) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+
+  // Built from live requests and connections rather than a fixed list.
+  const notifications = [
+    ...partnerConnections
+      .filter(c => c.status === 'pending' && c.direction === 'incoming')
+      .map(c => ({
+        id: `conn-${c.id}`,
+        title: 'New Connection Request',
+        text: `${c.partnerName} wants to connect`,
+        timestamp: c.timestamp,
+        tab: 'requests',
+      })),
+    ...connections
+      .filter(c => c.type === 'received' && c.status === 'pending')
+      .map(c => ({
+        id: `req-${c.id}`,
+        title: 'New Resource Request',
+        text: `${c.fromName} requested ${c.quantity} ${c.item}`,
+        timestamp: c.timestamp,
+        tab: 'requests',
+      })),
+    ...connections
+      .filter(c => c.type === 'sent' && c.status === 'approved')
+      .map(c => ({
+        id: `approved-${c.id}`,
+        title: 'Request Approved',
+        text: `${c.fromName} approved your request for ${c.quantity} ${c.item}`,
+        timestamp: c.timestamp,
+        tab: 'messages',
+      })),
+  ]
+    .sort((a, b) => b.timestamp - a.timestamp)
+    .slice(0, 10);
 
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -173,69 +209,38 @@ export default function Layout({
                 </div>
                 <div className="flex-1 overflow-y-auto p-6 space-y-4">
                   <p className="text-sm text-slate-500 mb-6">Keep track of your latest activity</p>
-                  
-                    <div 
-                      onClick={() => setActionsNeededRead(true)}
-                      className={cn(
-                        "p-4 rounded-[5px] border cursor-pointer transition-all",
-                        actionsNeededRead 
-                          ? "border-slate-100 bg-white" 
-                          : "border-brand-primary/20 bg-brand-secondary/30"
-                      )}
-                    >
-                      <div className="flex justify-between mb-1">
-                        <span className="text-sm font-bold text-brand-dark flex items-center gap-2">
-                          <div className="w-1.5 h-1.5 rounded-full bg-brand-primary" />
-                          New Connection Request
-                        </span>
-                        <span className="text-xs text-slate-400">Just now</span>
-                      </div>
-                      <p className="text-sm text-slate-600">
-                        Hope Feeling Foundation wants to connect
-                      </p>
-                    </div>
 
-                    <div 
-                      onClick={() => setActionsNeededRead(true)}
-                      className={cn(
-                        "p-4 rounded-[5px] border cursor-pointer transition-all",
-                        actionsNeededRead 
-                          ? "border-slate-100 bg-white" 
-                          : "border-brand-primary/20 bg-brand-secondary/30"
-                      )}
-                    >
-                      <div className="flex justify-between mb-1">
-                        <span className="text-sm font-bold text-brand-dark flex items-center gap-2">
-                          <div className="w-1.5 h-1.5 rounded-full bg-brand-primary" />
-                          New Connection Request
-                        </span>
-                        <span className="text-xs text-slate-400">48 mins ago</span>
-                      </div>
-                      <p className="text-sm text-slate-600">
-                        The Woman's Shelter wants to connect
-                      </p>
-                    </div>
-
-                  <div className="p-4 rounded-[5px] border border-slate-100 bg-white relative">
-                    <div className="flex justify-between mb-1">
-                      <span className="text-sm font-bold text-brand-dark flex items-center gap-2">
-                        <div className="w-1.5 h-1.5 rounded-full bg-brand-primary" />
-                        Request Approved
-                      </span>
-                      <span className="text-xs text-slate-400">1 day ago</span>
-                    </div>
-                    <p className="text-sm text-slate-600 mb-3">Successfully approved Youth Outreach</p>
-                    <button 
+                  {notifications.map((note) => (
+                    <div
+                      key={note.id}
                       onClick={() => {
-                        setActiveTab('messages');
+                        setActionsNeededRead(true);
+                        setActiveTab(note.tab);
                         setIsNotificationsOpen(false);
                       }}
-                      className="text-xs font-bold text-brand-primary hover:underline flex items-center gap-1"
+                      className={cn(
+                        "p-4 rounded-[5px] border cursor-pointer transition-all",
+                        actionsNeededRead
+                          ? "border-slate-100 bg-white"
+                          : "border-brand-primary/20 bg-brand-secondary/30"
+                      )}
                     >
-                      <MessageSquare size={14} />
-                      Message Partner to coordinate
-                    </button>
-                  </div>
+                      <div className="flex justify-between mb-1">
+                        <span className="text-sm font-bold text-brand-dark flex items-center gap-2">
+                          <div className="w-1.5 h-1.5 rounded-full bg-brand-primary" />
+                          {note.title}
+                        </span>
+                        <span className="text-xs text-slate-400 whitespace-nowrap">{timeAgo(note.timestamp)}</span>
+                      </div>
+                      <p className="text-sm text-slate-600">{note.text}</p>
+                    </div>
+                  ))}
+
+                  {notifications.length === 0 && (
+                    <div className="h-32 flex items-center justify-center border border-dashed border-slate-200 rounded-[5px] text-slate-400 text-sm">
+                      You have no notifications yet.
+                    </div>
+                  )}
                 </div>
               </motion.aside>
             </>
