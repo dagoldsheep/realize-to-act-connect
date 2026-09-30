@@ -13,16 +13,22 @@ import ProfileSetup from './components/ProfileSetup';
 import { User, UserType, ConnectionRequest, Chat, Document } from './types';
 import { MOCK_USER } from './mockData';
 import { auth } from './lib/firebase';
-import { getUserProfile } from './lib/users';
+import { DEFAULT_AVAILABILITY, getUserProfile } from './lib/users';
 import { subscribeToRequests } from './lib/requests';
 import { subscribeToChats } from './lib/chats';
 import { subscribeToDocuments } from './lib/documents';
 import { saveOrganizationProfile, skipProfileSetup } from './lib/profiles';
 
-// Builds the in-app User object for a signed-in Firebase uid, layering the
-// Firestore "users/{uid}" profile (org name, availability, etc.) on top of
-// sane defaults so the UI has something to render even for a brand-new,
-// mostly-empty profile.
+/** Drops keys whose value is undefined so they don't blank out earlier defaults when spread. */
+function definedOnly<T extends object>(obj: T): Partial<T> {
+  return Object.fromEntries(Object.entries(obj).filter(([, value]) => value !== undefined)) as Partial<T>;
+}
+
+// Builds the in-app User object for a signed-in Firebase uid from their own
+// Firestore "users/{uid}" profile (plus locally cached setup state). Missing
+// fields stay empty — the UI shows placeholders for them — so no one is ever
+// shown another organization's details as if they were their own. The sample
+// MOCK_USER data is used only by the demo logins on the sign-in screen.
 async function loadUser(uid: string, fallbackType: UserType): Promise<User> {
   const profile = await getUserProfile(uid);
   const localCompleted = typeof window !== 'undefined' ? localStorage.getItem(`setupCompleted_${uid}`) : null;
@@ -38,20 +44,23 @@ async function loadUser(uid: string, fallbackType: UserType): Promise<User> {
   }
 
   const effectiveType = profile.type ?? fallbackType;
-  const defaultName = effectiveType === 'community-partner'
-    ? (uid === 'demo-partner-user' ? 'Hope Feeling Foundation' : 'Community Partner Organization')
-    : MOCK_USER.name;
+  const isDemo = uid.startsWith('demo-') || uid === 'user-1';
+  const demoName = effectiveType === 'community-partner' ? 'Hope Feeling Foundation' : MOCK_USER.name;
 
   return {
-    ...MOCK_USER,
-    name: profile.name || (uid.startsWith('demo-') ? (effectiveType === 'community-partner' ? 'Hope Feeling Foundation' : 'Midland Elementary School') : defaultName),
-    ...profile,
+    // Demo logins intentionally show a sample organization; real accounts
+    // only ever show their own data, with placeholders where it's missing.
+    ...(isDemo ? MOCK_USER : {}),
+    ...definedOnly(profile),
     id: uid,
+    name: profile.name || (isDemo ? demoName : 'Your Organization'),
+    email: profile.email || (isDemo ? MOCK_USER.email : ''),
     type: effectiveType,
+    availability: profile.availability ?? (isDemo ? MOCK_USER.availability : DEFAULT_AVAILABILITY),
+    location: profile.location || localLocation || (isDemo ? MOCK_USER.location : undefined),
     setupCompletedAt: profile.setupCompletedAt || localCompleted || undefined,
     setupSkippedAt: profile.setupSkippedAt || localSkipped || undefined,
     profileAnswers: parsedAnswers,
-    location: profile.location || localLocation || MOCK_USER.location,
   };
 }
 

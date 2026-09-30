@@ -123,19 +123,23 @@ export default function Profile({ user, onLogout, connections, onUpdateUser }: P
             </div>
 
             <div className="flex items-center gap-6 mb-8">
-              <div className="w-24 h-24 rounded-full overflow-hidden border-4 border-brand-secondary">
-                <img src={user.avatar} alt={user.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+              <div className="w-24 h-24 rounded-full overflow-hidden border-4 border-brand-secondary bg-brand-secondary/30 flex items-center justify-center flex-shrink-0">
+                {user.avatar ? (
+                  <img src={user.avatar} alt={user.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                ) : (
+                  <span className="text-3xl font-bold text-brand-primary">{user.name[0]}</span>
+                )}
               </div>
               <div>
                 <h3 className="text-xl font-bold text-brand-dark">{user.name}</h3>
                 <div className="space-y-1 mt-2">
                   <div className="flex items-center gap-2 text-sm text-slate-500">
                     <MapPin size={16} className="text-brand-primary" />
-                    {user.location}
+                    {user.location || 'No location set'}
                   </div>
                   <div className="flex items-center gap-2 text-sm text-slate-500">
                     <UserIcon size={16} className="text-brand-primary" />
-                    {user.contactName}
+                    {user.contactName || 'No contact name set'}
                   </div>
                   <div className="flex items-center gap-2 text-sm text-slate-500">
                     <Mail size={16} className="text-brand-primary" />

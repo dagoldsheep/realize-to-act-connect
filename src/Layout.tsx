@@ -66,9 +66,13 @@ export default function Layout({
                   setActiveTab('profile');
                 }
               }}
-              className="w-8 h-8 rounded-full overflow-hidden border border-slate-200 hover:ring-2 hover:ring-brand-primary/20 transition-all"
+              className="w-8 h-8 rounded-full overflow-hidden border border-slate-200 hover:ring-2 hover:ring-brand-primary/20 transition-all bg-brand-secondary/30 flex items-center justify-center"
             >
-              <img src={user.avatar} alt={user.name} className="w-full h-full object-cover" />
+              {user.avatar ? (
+                <img src={user.avatar} alt={user.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+              ) : (
+                <span className="text-xs font-bold text-brand-primary">{user.name[0]}</span>
+              )}
             </button>
           </div>
         </div>
