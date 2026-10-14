@@ -98,6 +98,32 @@ service cloud.firestore {
       allow delete: if isSignedIn() && request.auth.uid in resource.data.participantUids;
     }
 
+    // --- Acknowledgement letters (src/lib/documents.ts) ---
+    match /documents/{documentId} {
+      // Only the two organizations named on the letter can see it.
+      allow read: if isSignedIn() && request.auth.uid in resource.data.participantUids;
+
+      // Created by the organization receiving the items, when it approves a
+      // request, and only in the 'pending' state.
+      allow create: if isSignedIn() &&
+        request.resource.data.participantUids.size() == 2 &&
+        request.resource.data.toUid == request.auth.uid &&
+        request.resource.data.fromUid != request.auth.uid &&
+        request.auth.uid in request.resource.data.participantUids &&
+        request.resource.data.status == 'pending';
+
+      // Only the receiving organization signs or rejects, and only once.
+      allow update: if isSignedIn() &&
+        resource.data.toUid == request.auth.uid &&
+        resource.data.status == 'pending' &&
+        request.resource.data.status in ['signed', 'rejected'] &&
+        request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['status', 'signedAt', 'signedBy', 'rejectedReason', 'rejectedDetails', 'updatedAt']);
+
+      // Letters are kept as a record for both sides.
+      allow delete: if false;
+    }
+
     // --- Chats & messages (Messages.tsx "messages sent" & "messages received") ---
     match /chats/{chatId} {
       allow read, update: if isSignedIn() && request.auth.uid in resource.data.participantUids;

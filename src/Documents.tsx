@@ -6,11 +6,14 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from './lib/utils';
 import { Document } from './types';
+import { rejectDocument, signDocument } from './lib/documents';
 
 interface DocumentsProps {
   documents: Document[];
   setDocuments: React.Dispatch<React.SetStateAction<Document[]>>;
   updateLastAction: () => void;
+  /** Only the organization receiving the items can sign or reject a letter. */
+  currentUid: string;
 }
 
 const SignatureCanvas = ({ onSave, onClear }: { onSave: (dataUrl: string) => void, onClear: () => void }) => {
@@ -106,7 +109,7 @@ const SignatureCanvas = ({ onSave, onClear }: { onSave: (dataUrl: string) => voi
   );
 };
 
-export default function Documents({ documents, setDocuments, updateLastAction }: DocumentsProps) {
+export default function Documents({ documents, setDocuments, updateLastAction, currentUid }: DocumentsProps) {
   const [showSignModal, setShowSignModal] = useState(false);
   const [activeDoc, setActiveDoc] = useState<any>(null);
   const [signMethod, setSignMethod] = useState<'type' | 'draw'>('type');
@@ -115,6 +118,7 @@ export default function Documents({ documents, setDocuments, updateLastAction }:
   const [drawnSignature, setDrawnSignature] = useState<string | null>(null);
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
   const [showAllPending, setShowAllPending] = useState(false);
+  const [signerName, setSignerName] = useState('');
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [docToDelete, setDocToDelete] = useState<any>(null);
   const [rejectReason, setRejectReason] = useState('');
@@ -135,9 +139,12 @@ export default function Documents({ documents, setDocuments, updateLastAction }:
     setShowDeleteModal(true);
   };
 
-  const confirmDelete = () => {
+  const confirmDelete = async () => {
     if (docToDelete) {
-      setDocuments(prev => prev.filter(d => d.id !== docToDelete.id));
+      // Rejecting keeps the letter (with its reason) for both organizations
+      // rather than deleting it; it just leaves the pending list.
+      await rejectDocument(docToDelete.id, rejectReason, rejectDetails)
+        .catch(err => console.error('Could not reject document', err));
       updateLastAction();
       setShowDeleteModal(false);
       setDocToDelete(null);
@@ -146,13 +153,10 @@ export default function Documents({ documents, setDocuments, updateLastAction }:
     }
   };
 
-  const handleSignSubmit = () => {
+  const handleSignSubmit = async () => {
     if (activeDoc) {
-      setDocuments(prev => prev.map(d => 
-        d.id === activeDoc.id 
-          ? { ...d, status: 'signed', signedDate: new Date().toLocaleDateString('en-GB').replace(/\//g, '-') } 
-          : d
-      ));
+      await signDocument(activeDoc.id, signerName.trim() || 'Signed by hand')
+        .catch(err => console.error('Could not sign document', err));
       updateLastAction();
       setShowSignModal(false);
       setActiveDoc(null);
@@ -160,6 +164,7 @@ export default function Documents({ documents, setDocuments, updateLastAction }:
       setSignatureSaved(false);
       setDrawnSignature(null);
       setUploadedImage(null);
+      setSignerName('');
     }
   };
 
@@ -208,28 +213,37 @@ export default function Documents({ documents, setDocuments, updateLastAction }:
                     </div>
                   </div>
                   <div className="flex flex-col gap-3 justify-center w-full sm:w-auto">
-                    <button 
-                      onClick={() => handleSign(doc)}
-                      className="w-full py-3 bg-brand-primary hover:bg-brand-dark text-white rounded-[5px] font-bold transition-all"
-                    >
-                      Sign
-                    </button>
-                    <div className="flex gap-2 w-full">
-                      <button 
-                        onClick={() => console.log('Viewing document:', doc.id)}
-                        className="flex-1 p-3 flex justify-center items-center border border-slate-200 text-slate-700 rounded-[5px] hover:bg-slate-50 transition-all"
-                        title="View document"
-                      >
-                        <Search size={20} />
-                      </button>
-                      <button 
-                        onClick={() => handleDeleteClick(doc)}
-                        className="flex-1 p-3 flex justify-center items-center border border-red-100 text-red-500 rounded-[5px] hover:bg-red-50 transition-all"
-                        title="Reject document request"
-                      >
-                        <Ban size={20} />
-                      </button>
-                    </div>
+                    {/* The organization that provided the items can see the letter but doesn't sign it. */}
+                    {doc.toUid && doc.toUid !== currentUid ? (
+                      <span className="px-4 py-3 rounded-[5px] bg-slate-50 border border-slate-100 text-xs font-bold text-slate-500 text-center whitespace-nowrap">
+                        Waiting on {doc.toName}
+                      </span>
+                    ) : (
+                      <>
+                        <button
+                          onClick={() => handleSign(doc)}
+                          className="w-full py-3 bg-brand-primary hover:bg-brand-dark text-white rounded-[5px] font-bold transition-all"
+                        >
+                          Sign
+                        </button>
+                        <div className="flex gap-2 w-full">
+                          <button
+                            onClick={() => console.log('Viewing document:', doc.id)}
+                            className="flex-1 p-3 flex justify-center items-center border border-slate-200 text-slate-700 rounded-[5px] hover:bg-slate-50 transition-all"
+                            title="View document"
+                          >
+                            <Search size={20} />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteClick(doc)}
+                            className="flex-1 p-3 flex justify-center items-center border border-red-100 text-red-500 rounded-[5px] hover:bg-red-50 transition-all"
+                            title="Reject document request"
+                          >
+                            <Ban size={20} />
+                          </button>
+                        </div>
+                      </>
+                    )}
                   </div>
                 </div>
               </div>
@@ -317,9 +331,14 @@ export default function Documents({ documents, setDocuments, updateLastAction }:
                   </div>
 
                   {signMethod === 'type' ? (
-                    <input 
-                      type="text" 
-                      placeholder="Jane Doe" 
+                    <input
+                      type="text"
+                      placeholder="Your full name"
+                      value={signerName}
+                      onChange={(e) => {
+                        setSignerName(e.target.value);
+                        setIsSigned(!!e.target.value.trim());
+                      }}
                       className="w-full px-4 py-3 rounded-[5px] border border-slate-200 focus:outline-none focus:ring-2 focus:ring-brand-primary/20"
                     />
                   ) : (

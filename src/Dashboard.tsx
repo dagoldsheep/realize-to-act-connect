@@ -12,6 +12,7 @@ import { respondToRequest } from './lib/requests';
 import { ensureChat } from './lib/chats';
 import { PartnerSummary } from './PartnerAbout';
 import { connectOnApprovedRequest, listOrganizations } from './lib/connections';
+import { createAcknowledgement } from './lib/documents';
 
 interface DashboardProps {
   user: User;
@@ -72,18 +73,16 @@ export default function Dashboard({
       ).catch(err => console.error('Auto-connect failed', err));
       updateLastAction();
 
-      // Add to pending signatures
-      const newDoc: Document = {
-        id: `doc-${Date.now()}`,
-        title: `Letter of Acknowledgement - ${connection.fromName}`,
+      // Acknowledgement letter for the receiving organization to sign. Saved to
+      // Firestore, so it survives a refresh and is visible to both sides.
+      await createAcknowledgement({
+        fromUid: connection.fromId,
         fromName: connection.fromName,
+        toUid: user.id,
         toName: user.name,
-        status: 'pending',
-        dueDate: 'Due in 7 days',
-        timeAgo: 'Just now',
         itemDescription: `approved ${connection.quantity} ${connection.item}`,
-      };
-      setDocuments(prev => [newDoc, ...prev]);
+        requestId: id,
+      }).catch(err => console.error('Could not create acknowledgement letter', err));
     }
   };
 

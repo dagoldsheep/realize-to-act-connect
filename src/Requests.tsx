@@ -11,6 +11,7 @@ import { createRequest, respondToRequest, cancelRequest } from './lib/requests';
 import { ensureChat } from './lib/chats';
 import { PartnerSummary } from './PartnerAbout';
 import { acceptConnection, connectOnApprovedRequest, removeConnection } from './lib/connections';
+import { createAcknowledgement } from './lib/documents';
 
 interface RequestsProps {
   connections: ConnectionRequest[];
@@ -54,6 +55,16 @@ export default function Requests({ connections, setConnections, user, onViewPart
         { uid: connection.fromId, name: connection.fromName, avatar: connection.fromAvatar },
         id
       ).catch(err => console.error('Auto-connect failed', err));
+
+      // Acknowledgement letter for the receiving organization to sign.
+      await createAcknowledgement({
+        fromUid: connection.fromId,
+        fromName: connection.fromName,
+        toUid: user.id,
+        toName: user.name,
+        itemDescription: `approved ${connection.quantity} ${connection.item}`,
+        requestId: id,
+      }).catch(err => console.error('Could not create acknowledgement letter', err));
     }
   };
 

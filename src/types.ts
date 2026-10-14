@@ -68,11 +68,15 @@ export interface Document {
   title: string;
   fromName: string;
   toName: string;
-  status: 'pending' | 'signed';
+  status: 'pending' | 'signed' | 'rejected';
   dueDate?: string;
   signedDate?: string;
   timeAgo: string;
   itemDescription: string;
+  fromUid?: string;
+  toUid?: string;
+  requestId?: string;
+  timestamp?: number;
 }
 
 export interface Message {

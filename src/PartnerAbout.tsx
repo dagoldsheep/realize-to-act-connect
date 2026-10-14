@@ -4,6 +4,7 @@ import { ConnectionRequest, User } from './types';
 import { respondToRequest, cancelRequest } from './lib/requests';
 import { ensureChat } from './lib/chats';
 import { connectOnApprovedRequest } from './lib/connections';
+import { createAcknowledgement } from './lib/documents';
 import { getPublicProfile, PublicProfile } from './lib/profiles';
 import { PROFILE_FIELDS, isAnswered } from './lib/profileFields';
 
@@ -56,6 +57,16 @@ export default function PartnerAbout({ partner, user, connections, onBack }: Par
       { uid: conn.fromId, name: conn.fromName, avatar: conn.fromAvatar },
       conn.id
     ).catch(err => console.error('Auto-connect failed', err));
+
+    // Acknowledgement letter for the receiving organization to sign.
+    await createAcknowledgement({
+      fromUid: conn.fromId,
+      fromName: conn.fromName,
+      toUid: user.id,
+      toName: user.name,
+      itemDescription: `approved ${conn.quantity} ${conn.item}`,
+      requestId: conn.id,
+    }).catch(err => console.error('Could not create acknowledgement letter', err));
   };
 
   const name = profile?.name ?? partner.name;

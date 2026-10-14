@@ -12,12 +12,13 @@ import Search from './Search';
 import PartnerAbout, { PartnerSummary } from './PartnerAbout';
 import ProfileSetup from './ProfileSetup';
 import { User, UserType, ConnectionRequest, Chat, Document, Connection } from './types';
-import { MOCK_USER, MOCK_DOCUMENTS as INITIAL_DOCUMENTS } from './mockData';
+import { MOCK_USER } from './mockData';
 import { auth } from './lib/firebase';
 import { DEFAULT_AVAILABILITY, getUserProfile } from './lib/users';
 import { subscribeToRequests } from './lib/requests';
 import { subscribeToChats } from './lib/chats';
 import { subscribeToConnections } from './lib/connections';
+import { subscribeToDocuments } from './lib/documents';
 
 /** Drops keys whose value is undefined so they don't blank out earlier defaults when spread. */
 function definedOnly<T extends object>(obj: T): Partial<T> {
@@ -70,7 +71,7 @@ export default function App() {
   const [isLoading, setIsLoading] = useState(true);
   const [actionsNeededRead, setActionsNeededRead] = useState(false);
   const [connections, setConnections] = useState<ConnectionRequest[]>([]);
-  const [documents, setDocuments] = useState(INITIAL_DOCUMENTS);
+  const [documents, setDocuments] = useState<Document[]>([]);
   const [chats, setChats] = useState<Chat[]>([]);
   // Organization-to-organization connections; `connections` above holds resource requests.
   const [partnerConnections, setPartnerConnections] = useState<Connection[]>([]);
@@ -114,15 +115,18 @@ export default function App() {
       setConnections([]);
       setChats([]);
       setPartnerConnections([]);
+      setDocuments([]);
       return;
     }
     const unsubscribeRequests = subscribeToRequests(user.id, setConnections);
     const unsubscribeChats = subscribeToChats(user.id, setChats);
     const unsubscribeConnections = subscribeToConnections(user.id, setPartnerConnections);
+    const unsubscribeDocuments = subscribeToDocuments(user.id, setDocuments);
     return () => {
       unsubscribeRequests();
       unsubscribeChats();
       unsubscribeConnections();
+      unsubscribeDocuments();
     };
   }, [user?.id]);
 
@@ -256,10 +260,11 @@ export default function App() {
         />
       )}
       {activeTab === 'documents' && (
-        <Documents 
+        <Documents
           documents={documents}
           setDocuments={setDocuments}
           updateLastAction={updateLastAction}
+          currentUid={user.id}
         />
       )}
       {activeTab === 'search' && (
